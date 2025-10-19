@@ -1,8 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { TrendingDown, TrendingUp, Activity, Target, Trash2 } from 'lucide-react';
+import { TrendingDown, TrendingUp, Activity, Target, Trash2, LogOut } from 'lucide-react';
+import { auth, db } from './firebase';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged
+} from 'firebase/auth';
+import {
+  doc,
+  setDoc,
+  getDoc,
+  updateDoc,
+  collection,
+  addDoc,
+  query,
+  where,
+  getDocs,
+  deleteDoc
+} from 'firebase/firestore';
 
 export default function MacroCoachApp() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [authMode, setAuthMode] = useState('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
   const [step, setStep] = useState('setup');
   const [userData, setUserData] = useState({
     age: 30,
@@ -12,47 +37,162 @@ export default function MacroCoachApp() {
     targetWeight: 80,
     activityLevel: 1.5,
     goal: 'lose',
-    weeklyGoal: 0.5
+    weeklyGoalPercent: 0.5
   });
-  
+
   const [weightEntries, setWeightEntries] = useState([]);
+  const [calorieEntries, setCalorieEntries] = useState([]);
   const [currentWeek, setCurrentWeek] = useState(1);
   const [tdee, setTdee] = useState(0);
   const [recommendations, setRecommendations] = useState(null);
   const [weeklyAverages, setWeeklyAverages] = useState([]);
   const [calorieHistory, setCalorieHistory] = useState([]);
 
-  // Berechne initiale TDEE mit Mifflin-St Jeor
-  const calculateInitialTDEE = (data) => {
-    let bmr;
-    if (data.gender === 'male') {
-      bmr = 10 * data.currentWeight + 6.25 * data.height - 5 * data.age + 5;
-    } else {
-      bmr = 10 * data.currentWeight + 6.25 * data.height - 5 * data.age - 161;
+  // Auth State Listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        await loadUserData(currentUser.uid);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Lade Benutzerdaten aus Firestore
+  const loadUserData = async (userId) => {
+    try {
+      // Lade Hauptdaten
+      const userDocRef = doc(db, 'users', userId);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        setUserData(data.userData || userData);
+        setStep(data.step || 'setup');
+        setCurrentWeek(data.currentWeek || 1);
+        setTdee(data.tdee || 0);
+        setRecommendations(data.recommendations || null);
+        setWeeklyAverages(data.weeklyAverages || []);
+        setCalorieHistory(data.calorieHistory || []);
+      }
+
+      // Lade Gewichtseinträge
+      const weightQuery = query(collection(db, 'weightEntries'), where('userId', '==', userId));
+      const weightSnapshot = await getDocs(weightQuery);
+      const weights = weightSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setWeightEntries(weights);
+
+      // Lade Kalorieneinträge
+      const calorieQuery = query(collection(db, 'calorieEntries'), where('userId', '==', userId));
+      const calorieSnapshot = await getDocs(calorieQuery);
+      const calories = calorieSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setCalorieEntries(calories);
+
+    } catch (error) {
+      console.error('Fehler beim Laden der Daten:', error);
     }
+  };
+
+  // Speichere Hauptdaten in Firestore
+  const saveUserData = async () => {
+    if (!user) return;
+
+    try {
+      const userDocRef = doc(db, 'users', user.uid);
+      await setDoc(userDocRef, {
+        userData,
+        step,
+        currentWeek,
+        tdee,
+        recommendations,
+        weeklyAverages,
+        calorieHistory,
+        updatedAt: new Date()
+      });
+    } catch (error) {
+      console.error('Fehler beim Speichern:', error);
+    }
+  };
+
+  // Speichere bei jeder Änderung
+  useEffect(() => {
+    if (user && !loading) {
+      saveUserData();
+    }
+  }, [step, currentWeek, tdee, recommendations, weeklyAverages, calorieHistory, userData]);
+
+  const handleAuth = async (e) => {
+    e.preventDefault();
+    try {
+      if (authMode === 'register') {
+        await createUserWithEmailAndPassword(auth, email, password);
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+      setEmail('');
+      setPassword('');
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setStep('setup');
+      setWeightEntries([]);
+      setCalorieEntries([]);
+      setCurrentWeek(1);
+      setWeeklyAverages([]);
+      setCalorieHistory([]);
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+
+  const calculateInitialTDEE = (data) => {
+    let lbmEstimate;
+    if (data.gender === 'male') {
+      lbmEstimate = data.currentWeight * 0.85;
+    } else {
+      lbmEstimate = data.currentWeight * 0.75;
+    }
+
+    const bmr = 500 + (22 * lbmEstimate);
     return Math.round(bmr * data.activityLevel);
   };
 
-  // Berechne Makros
-  const calculateMacros = (calories, weight) => {
-    const protein = Math.round(weight * 2.0); // 2g pro kg
+  const calculateMacros = (calories, weight, height, goal) => {
+    let proteinPerKg = 2.0;
+    if (goal === 'lose') {
+      proteinPerKg = 2.2;
+    } else if (goal === 'gain') {
+      proteinPerKg = 1.8;
+    }
+    const protein = Math.round(weight * proteinPerKg);
     const proteinCals = protein * 4;
-    
-    const fatPercent = 0.30;
-    const fatCals = Math.round(calories * fatPercent);
-    const fat = Math.round(fatCals / 9);
-    
-    const carbCals = calories - proteinCals - fatCals;
+
+    const minFat = height < 150 ? 30 : Math.round((height - 150) * 0.5 + 30);
+
+    const targetFatCals = calories * 0.275;
+    const targetFat = Math.round(targetFatCals / 9);
+    const fat = Math.max(minFat, targetFat);
+    const fatCals = fat * 9;
+
+    const carbCals = Math.max(0, calories - proteinCals - fatCals);
     const carbs = Math.round(carbCals / 4);
-    
-    return { protein, fat, carbs };
+
+    return { protein, fat, carbs, minFat };
   };
 
-  // Berechne Kalorienziel
-  const calculateCalorieTarget = (currentTDEE, goal, weeklyGoal) => {
-    const weeklyCalDeficit = weeklyGoal * 7700; // 7700 kcal = 1 kg
+  const calculateCalorieTarget = (currentTDEE, goal, weeklyGoalPercent, currentWeight) => {
+    const weeklyGoalKg = (weeklyGoalPercent / 100) * currentWeight;
+    const weeklyCalDeficit = weeklyGoalKg * 7700;
     const dailyDeficit = weeklyCalDeficit / 7;
-    
+
     let target;
     if (goal === 'lose') {
       target = Math.round(currentTDEE - dailyDeficit);
@@ -61,52 +201,54 @@ export default function MacroCoachApp() {
     } else {
       target = currentTDEE;
     }
-    
-    // Sicherheitsgrenzen: Minimum 1200 kcal, Maximum 5000 kcal
+
     return Math.max(1200, Math.min(5000, target));
   };
 
-  // Berechne Wochendurchschnitt
-  const calculateWeeklyAverage = (week) => {
-    const weekEntries = weightEntries.filter(e => e.week === week);
+  const calculateWeeklyAverage = (week, entries) => {
+    const weekEntries = entries.filter(e => e.week === week);
     if (weekEntries.length === 0) return null;
-    const sum = weekEntries.reduce((acc, e) => acc + e.weight, 0);
+    const sum = weekEntries.reduce((acc, e) => acc + e.value, 0);
     return sum / weekEntries.length;
   };
 
-  // Anpassung der TDEE basierend auf tatsächlichem Fortschritt
-  const adjustTDEE = () => {
-    // Mindestens 3 Wochen Daten für verlässliche Anpassung
+  const adjustTDEE = (currentWeight) => {
     if (weeklyAverages.length < 3) return tdee;
 
-    // Berechne Trend über die letzten 3 Wochen
     const recentWeeks = weeklyAverages.slice(-3);
-    const oldestWeight = recentWeeks[0].avgWeight;
-    const newestWeight = recentWeeks[recentWeeks.length - 1].avgWeight;
-    const weeksSpan = recentWeeks.length;
-    
-    const actualWeeklyChange = (oldestWeight - newestWeight) / weeksSpan;
-    const expectedWeeklyChange = userData.goal === 'lose' ? userData.weeklyGoal : 
-                                  userData.goal === 'gain' ? -userData.weeklyGoal : 0;
-    
-    const difference = actualWeeklyChange - expectedWeeklyChange;
-    
-    // Nur anpassen wenn Abweichung signifikant (>0.15 kg/Woche über 3 Wochen)
-    if (Math.abs(difference) > 0.15) {
-      // Konservative Anpassung: 50% der berechneten Differenz
-      const calorieAdjustment = (difference * 7700 / 7) * 0.5;
-      
-      // Begrenze Anpassung auf max ±200 kcal pro Woche
-      const limitedAdjustment = Math.max(-200, Math.min(200, calorieAdjustment));
-      
-      return Math.round(tdee + limitedAdjustment);
+    const oldestWeek = recentWeeks[0];
+    const newestWeek = recentWeeks[recentWeeks.length - 1];
+
+    const numDays = 7 * 3;
+
+    const relevantCalories = calorieHistory.filter(ch =>
+      ch.week >= oldestWeek.week && ch.week <= newestWeek.week
+    );
+
+    let avgDailyCalories;
+    if (relevantCalories.length > 0 && relevantCalories.some(c => c.avgCalories !== null)) {
+      const trackedCalories = relevantCalories.filter(c => c.avgCalories !== null);
+      const totalCalories = trackedCalories.reduce((sum, c) => sum + (c.avgCalories * 7), 0);
+      avgDailyCalories = totalCalories / numDays;
+    } else {
+      avgDailyCalories = recommendations.calories;
     }
-    
-    return tdee;
+
+    const totalWeightChange = oldestWeek.avgWeight - newestWeek.avgWeight;
+    const energyFromBodyChange = (totalWeightChange * 7700) / numDays;
+    const calculatedTDEE = Math.round(avgDailyCalories + energyFromBodyChange);
+
+    const maxChange = 300;
+    const tdeeChange = calculatedTDEE - tdee;
+
+    if (Math.abs(tdeeChange) > maxChange) {
+      return tdee + (tdeeChange > 0 ? maxChange : -maxChange);
+    }
+
+    return calculatedTDEE;
   };
 
   const handleSetup = () => {
-    // Validierung: Ziel muss zu Gewichten passen
     if (userData.goal === 'lose' && userData.currentWeight <= userData.targetWeight) {
       alert('Zum Abnehmen muss das Zielgewicht niedriger als das aktuelle Gewicht sein!');
       return;
@@ -115,108 +257,252 @@ export default function MacroCoachApp() {
       alert('Zum Zunehmen muss das Zielgewicht höher als das aktuelle Gewicht sein!');
       return;
     }
-    
+
     const initialTDEE = calculateInitialTDEE(userData);
     setTdee(initialTDEE);
-    
-    const calorieTarget = calculateCalorieTarget(initialTDEE, userData.goal, userData.weeklyGoal);
-    const macros = calculateMacros(calorieTarget, userData.currentWeight);
-    
+
+    const calorieTarget = calculateCalorieTarget(
+      initialTDEE,
+      userData.goal,
+      userData.weeklyGoalPercent,
+      userData.currentWeight
+    );
+    const macros = calculateMacros(
+      calorieTarget,
+      userData.currentWeight,
+      userData.height,
+      userData.goal
+    );
+
     setRecommendations({
       calories: calorieTarget,
       ...macros,
       tdee: initialTDEE
     });
-    
-    // Initialer Kalorieneintrag für Woche 0
+
     setCalorieHistory([{
       week: 0,
       calories: calorieTarget,
-      tdee: initialTDEE
+      tdee: initialTDEE,
+      avgCalories: null
     }]);
-    
+
     setStep('tracking');
   };
 
-  const addWeightEntry = (weight) => {
+  const addWeightEntry = async (weight) => {
+    if (!user) return;
+
     const newEntry = {
+      userId: user.uid,
       week: currentWeek,
       day: weightEntries.filter(e => e.week === currentWeek).length + 1,
-      weight: parseFloat(weight),
-      date: new Date().toLocaleDateString(),
-      id: Date.now() // Eindeutige ID für jeden Eintrag
+      value: parseFloat(weight),
+      createdAt: new Date()
     };
-    
-    setWeightEntries([...weightEntries, newEntry]);
+
+    try {
+      const docRef = await addDoc(collection(db, 'weightEntries'), newEntry);
+      setWeightEntries([...weightEntries, { id: docRef.id, ...newEntry }]);
+    } catch (error) {
+      console.error('Fehler beim Speichern:', error);
+    }
   };
 
-  const removeWeightEntry = (entryId) => {
-    setWeightEntries(weightEntries.filter(e => e.id !== entryId));
+  const addCalorieEntry = async (calories) => {
+    if (!user) return;
+
+    const newEntry = {
+      userId: user.uid,
+      week: currentWeek,
+      day: calorieEntries.filter(e => e.week === currentWeek).length + 1,
+      value: parseFloat(calories),
+      createdAt: new Date()
+    };
+
+    try {
+      const docRef = await addDoc(collection(db, 'calorieEntries'), newEntry);
+      setCalorieEntries([...calorieEntries, { id: docRef.id, ...newEntry }]);
+    } catch (error) {
+      console.error('Fehler beim Speichern:', error);
+    }
+  };
+
+  const removeEntry = async (entryId, isWeight) => {
+    try {
+      const collectionName = isWeight ? 'weightEntries' : 'calorieEntries';
+      await deleteDoc(doc(db, collectionName, entryId));
+
+      if (isWeight) {
+        setWeightEntries(weightEntries.filter(e => e.id !== entryId));
+      } else {
+        setCalorieEntries(calorieEntries.filter(e => e.id !== entryId));
+      }
+    } catch (error) {
+      console.error('Fehler beim Löschen:', error);
+    }
   };
 
   const completeWeek = () => {
-    const weekAvg = calculateWeeklyAverage(currentWeek);
-    if (!weekAvg) {
+    const weekAvgWeight = calculateWeeklyAverage(currentWeek, weightEntries);
+    if (!weekAvgWeight) {
       alert('Bitte mindestens eine Gewichtsmessung für diese Woche eintragen!');
       return;
     }
-    
+
+    const weekAvgCalories = calculateWeeklyAverage(currentWeek, calorieEntries);
+
     const newWeeklyAvg = {
       week: currentWeek,
-      avgWeight: parseFloat(weekAvg.toFixed(1))
+      avgWeight: parseFloat(weekAvgWeight.toFixed(1)),
+      avgCalories: weekAvgCalories ? parseFloat(weekAvgCalories.toFixed(0)) : null
     };
-    
+
     const updatedAverages = [...weeklyAverages, newWeeklyAvg];
     setWeeklyAverages(updatedAverages);
-    
-    // Anpassung der TDEE nach mindestens 3 Wochen
+
     if (updatedAverages.length >= 3) {
-      const adjustedTDEE = adjustTDEE();
+      const adjustedTDEE = adjustTDEE(weekAvgWeight);
+
       if (adjustedTDEE !== tdee) {
         setTdee(adjustedTDEE);
-        
-        const newCalorieTarget = calculateCalorieTarget(adjustedTDEE, userData.goal, userData.weeklyGoal);
-        const currentWeight = weekAvg;
-        const newMacros = calculateMacros(newCalorieTarget, currentWeight);
-        
+
+        const newCalorieTarget = calculateCalorieTarget(
+          adjustedTDEE,
+          userData.goal,
+          userData.weeklyGoalPercent,
+          weekAvgWeight
+        );
+        const newMacros = calculateMacros(
+          newCalorieTarget,
+          weekAvgWeight,
+          userData.height,
+          userData.goal
+        );
+
         setRecommendations({
           calories: newCalorieTarget,
           ...newMacros,
           tdee: adjustedTDEE
         });
-        
-        // Speichere Kalorienanpassung
+
         setCalorieHistory([...calorieHistory, {
           week: currentWeek,
           calories: newCalorieTarget,
-          tdee: adjustedTDEE
+          tdee: adjustedTDEE,
+          avgCalories: weekAvgCalories
         }]);
       } else {
-        // Auch wenn keine Anpassung, speichere aktuellen Wert
         setCalorieHistory([...calorieHistory, {
           week: currentWeek,
           calories: recommendations.calories,
-          tdee: tdee
+          tdee: tdee,
+          avgCalories: weekAvgCalories
         }]);
       }
     } else {
-      // Erste Wochen: speichere aktuelle Werte
       setCalorieHistory([...calorieHistory, {
         week: currentWeek,
         calories: recommendations.calories,
-        tdee: tdee
+        tdee: tdee,
+        avgCalories: weekAvgCalories
       }]);
     }
-    
+
     setCurrentWeek(currentWeek + 1);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-2xl font-semibold text-gray-700">Lädt...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
+          <h1 className="text-3xl font-bold text-gray-800 mb-6 text-center">
+            Nutrition Coach
+          </h1>
+
+          <div className="flex gap-4 mb-6">
+            <button
+              onClick={() => setAuthMode('login')}
+              className={`flex-1 py-2 rounded-lg font-semibold transition-colors ${authMode === 'login'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-200 text-gray-700'
+                }`}
+            >
+              Login
+            </button>
+            <button
+              onClick={() => setAuthMode('register')}
+              className={`flex-1 py-2 rounded-lg font-semibold transition-colors ${authMode === 'register'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-200 text-gray-700'
+                }`}
+            >
+              Registrieren
+            </button>
+          </div>
+
+          <form onSubmit={handleAuth} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                E-Mail
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Passwort
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+            >
+              {authMode === 'login' ? 'Anmelden' : 'Konto erstellen'}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   if (step === 'setup') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
         <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl p-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-6">Ernährungs-Coach Setup</h1>
-          
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-3xl font-bold text-gray-800">Ernährungs-Coach Setup</h1>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            >
+              <LogOut size={20} />
+              Abmelden
+            </button>
+          </div>
+
           <div className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -224,16 +510,16 @@ export default function MacroCoachApp() {
                 <input
                   type="number"
                   value={userData.age}
-                  onChange={(e) => setUserData({...userData, age: parseInt(e.target.value)})}
+                  onChange={(e) => setUserData({ ...userData, age: parseInt(e.target.value) })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Geschlecht</label>
                 <select
                   value={userData.gender}
-                  onChange={(e) => setUserData({...userData, gender: e.target.value})}
+                  onChange={(e) => setUserData({ ...userData, gender: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="male">Männlich</option>
@@ -241,46 +527,46 @@ export default function MacroCoachApp() {
                 </select>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Größe (cm)</label>
                 <input
                   type="number"
                   value={userData.height}
-                  onChange={(e) => setUserData({...userData, height: parseInt(e.target.value)})}
+                  onChange={(e) => setUserData({ ...userData, height: parseInt(e.target.value) })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Aktuelles Gewicht (kg)</label>
                 <input
                   type="number"
                   step="0.1"
                   value={userData.currentWeight}
-                  onChange={(e) => setUserData({...userData, currentWeight: parseFloat(e.target.value)})}
+                  onChange={(e) => setUserData({ ...userData, currentWeight: parseFloat(e.target.value) })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Zielgewicht (kg)</label>
               <input
                 type="number"
                 step="0.1"
                 value={userData.targetWeight}
-                onChange={(e) => setUserData({...userData, targetWeight: parseFloat(e.target.value)})}
+                onChange={(e) => setUserData({ ...userData, targetWeight: parseFloat(e.target.value) })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Aktivitätslevel</label>
               <select
                 value={userData.activityLevel}
-                onChange={(e) => setUserData({...userData, activityLevel: parseFloat(e.target.value)})}
+                onChange={(e) => setUserData({ ...userData, activityLevel: parseFloat(e.target.value) })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="1.2">Sitzend (wenig Bewegung)</option>
@@ -290,12 +576,12 @@ export default function MacroCoachApp() {
                 <option value="1.9">Extrem aktiv (2x täglich Training)</option>
               </select>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Ziel</label>
               <select
                 value={userData.goal}
-                onChange={(e) => setUserData({...userData, goal: e.target.value})}
+                onChange={(e) => setUserData({ ...userData, goal: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="lose">Abnehmen</option>
@@ -303,20 +589,39 @@ export default function MacroCoachApp() {
                 <option value="gain">Zunehmen</option>
               </select>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Wöchentliches Ziel (kg/Woche)
+                Wöchentliches Ziel (% des Körpergewichts/Woche)
               </label>
-              <input
-                type="number"
-                step="0.1"
-                value={userData.weeklyGoal}
-                onChange={(e) => setUserData({...userData, weeklyGoal: parseFloat(e.target.value)})}
+              <select
+                value={userData.weeklyGoalPercent}
+                onChange={(e) => setUserData({ ...userData, weeklyGoalPercent: parseFloat(e.target.value) })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+              >
+                {userData.goal === 'lose' ? (
+                  <>
+                    <option value="0.25">0.25% - Langsam (konservativ)</option>
+                    <option value="0.5">0.5% - Moderat</option>
+                    <option value="0.75">0.75% - Schnell</option>
+                    <option value="1.0">1.0% - Sehr schnell (aggressiv)</option>
+                  </>
+                ) : userData.goal === 'gain' ? (
+                  <>
+                    <option value="0.1">0.1% - Sehr langsam</option>
+                    <option value="0.25">0.25% - Moderat</option>
+                    <option value="0.5">0.5% - Aggressiv</option>
+                  </>
+                ) : (
+                  <option value="0">0% - Gewicht halten</option>
+                )}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                {userData.goal === 'lose' && `≈ ${(userData.currentWeight * userData.weeklyGoalPercent / 100).toFixed(2)} kg/Woche`}
+                {userData.goal === 'gain' && `≈ ${(userData.currentWeight * userData.weeklyGoalPercent / 100).toFixed(2)} kg/Woche`}
+              </p>
             </div>
-            
+
             <button
               onClick={handleSetup}
               className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
@@ -335,86 +640,91 @@ export default function MacroCoachApp() {
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-3xl font-bold text-gray-800">Woche {currentWeek}</h1>
-            <div className="flex items-center gap-2 text-blue-600">
-              <Target size={24} />
-              <span className="font-semibold">{userData.targetWeight} kg</span>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 text-blue-600">
+                <Target size={24} />
+                <span className="font-semibold">{userData.targetWeight} kg</span>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                <LogOut size={20} />
+              </button>
             </div>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
             <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white">
               <div className="text-sm opacity-90 mb-1">Kalorien</div>
               <div className="text-3xl font-bold">{recommendations?.calories}</div>
               <div className="text-xs opacity-75 mt-1">kcal/Tag</div>
             </div>
-            
+
             <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl p-6 text-white">
               <div className="text-sm opacity-90 mb-1">Protein</div>
               <div className="text-3xl font-bold">{recommendations?.protein}</div>
               <div className="text-xs opacity-75 mt-1">Gramm/Tag</div>
             </div>
-            
+
             <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white">
               <div className="text-sm opacity-90 mb-1">Kohlenhydrate</div>
               <div className="text-3xl font-bold">{recommendations?.carbs}</div>
               <div className="text-xs opacity-75 mt-1">Gramm/Tag</div>
             </div>
-            
+
             <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl p-6 text-white">
               <div className="text-sm opacity-90 mb-1">Fett</div>
               <div className="text-3xl font-bold">{recommendations?.fat}</div>
-              <div className="text-xs opacity-75 mt-1">Gramm/Tag</div>
+              <div className="text-xs opacity-75 mt-1">g/Tag (Min: {recommendations?.minFat})</div>
             </div>
           </div>
-          
+
           <div className="bg-gray-50 rounded-xl p-6 mb-6">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-2">
               <Activity className="text-blue-600" />
               <h3 className="text-lg font-semibold text-gray-800">Geschätzter TDEE: {recommendations?.tdee} kcal</h3>
             </div>
             <p className="text-sm text-gray-600">
-              Dieser Wert wird automatisch angepasst, basierend auf deinem tatsächlichen Fortschritt.
+              Ab Woche 3 wird dieser Wert automatisch angepasst basierend auf deinem Fortschritt und deinen tatsächlich gegessenen Kalorien.
             </p>
           </div>
-          
-          <div className="border-t pt-6">
-            <h3 className="text-xl font-semibold text-gray-800 mb-4">Gewicht eintragen</h3>
-            
-            <div className="flex gap-4 mb-6">
-              <input
-                type="number"
-                step="0.1"
-                placeholder="Gewicht in kg"
-                id="weight-input"
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              <button
-                onClick={() => {
-                  const input = document.getElementById('weight-input');
-                  if (input.value) {
-                    addWeightEntry(input.value);
-                    input.value = '';
-                  }
-                }}
-                className="px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors"
-              >
-                Hinzufügen
-              </button>
-            </div>
-            
-            <div className="mb-6">
-              <h4 className="font-semibold text-gray-700 mb-3">Einträge diese Woche:</h4>
+
+          <div className="border-t pt-6 space-y-6">
+            <div>
+              <h3 className="text-xl font-semibold text-gray-800 mb-4">Gewicht eintragen</h3>
+              <div className="flex gap-4 mb-4">
+                <input
+                  type="number"
+                  step="0.1"
+                  placeholder="Gewicht in kg"
+                  id="weight-input"
+                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <button
+                  onClick={() => {
+                    const input = document.getElementById('weight-input');
+                    if (input.value) {
+                      addWeightEntry(input.value);
+                      input.value = '';
+                    }
+                  }}
+                  className="px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors"
+                >
+                  Hinzufügen
+                </button>
+              </div>
+
               <div className="space-y-2">
                 {weightEntries.filter(e => e.week === currentWeek).map((entry) => (
                   <div key={entry.id} className="flex justify-between items-center bg-gray-50 px-4 py-2 rounded-lg">
                     <div className="flex items-center gap-3">
                       <span className="text-gray-600">Tag {entry.day}</span>
-                      <span className="font-semibold text-gray-800">{entry.weight} kg</span>
+                      <span className="font-semibold text-gray-800">{entry.value} kg</span>
                     </div>
                     <button
-                      onClick={() => removeWeightEntry(entry.id)}
+                      onClick={() => removeEntry(entry.id, true)}
                       className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition-colors"
-                      title="Eintrag löschen"
                     >
                       <Trash2 size={18} />
                     </button>
@@ -424,16 +734,70 @@ export default function MacroCoachApp() {
                   <p className="text-gray-500 text-sm italic">Noch keine Einträge für diese Woche</p>
                 )}
               </div>
-              
+
               {weightEntries.filter(e => e.week === currentWeek).length > 0 && (
                 <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="font-semibold text-blue-900">
-                    Durchschnitt diese Woche: {calculateWeeklyAverage(currentWeek)?.toFixed(1)} kg
+                    Durchschnitt diese Woche: {calculateWeeklyAverage(currentWeek, weightEntries)?.toFixed(1)} kg
                   </div>
                 </div>
               )}
             </div>
-            
+
+            <div>
+              <h3 className="text-xl font-semibold text-gray-800 mb-4">
+                Kalorien eintragen (optional)
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Wenn du deine tatsächlich gegessenen Kalorien trackst, nutzt die App diese für genauere TDEE-Berechnungen.
+              </p>
+
+              <div className="flex gap-4 mb-4">
+                <input
+                  type="number"
+                  placeholder="Kalorien"
+                  id="calorie-input"
+                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <button
+                  onClick={() => {
+                    const input = document.getElementById('calorie-input');
+                    if (input.value) {
+                      addCalorieEntry(input.value);
+                      input.value = '';
+                    }
+                  }}
+                  className="px-6 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors"
+                >
+                  Hinzufügen
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {calorieEntries.filter(e => e.week === currentWeek).map((entry) => (
+                  <div key={entry.id} className="flex justify-between items-center bg-purple-50 px-4 py-2 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <span className="text-gray-600">Tag {entry.day}</span>
+                      <span className="font-semibold text-gray-800">{entry.value} kcal</span>
+                    </div>
+                    <button
+                      onClick={() => removeEntry(entry.id, false)}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition-colors"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                ))}
+                {calorieEntries.filter(e => e.week === currentWeek).length > 0 && (
+                  <div className="mt-4 bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <div className="font-semibold text-purple-900">
+                      Durchschnitt diese Woche: {calculateWeeklyAverage(currentWeek, calorieEntries)?.toFixed(0)} kcal
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <button
               onClick={completeWeek}
               className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
@@ -442,11 +806,11 @@ export default function MacroCoachApp() {
             </button>
           </div>
         </div>
-        
+
         {weeklyAverages.length > 0 && (
           <div className="bg-white rounded-2xl shadow-xl p-8">
             <h2 className="text-2xl font-bold text-gray-800 mb-6">Fortschritt</h2>
-            
+
             <div className="mb-8">
               <h3 className="text-lg font-semibold text-gray-700 mb-4">Gewichtsverlauf</h3>
               <ResponsiveContainer width="100%" height={300}>
@@ -460,7 +824,7 @@ export default function MacroCoachApp() {
                 </LineChart>
               </ResponsiveContainer>
             </div>
-            
+
             <div className="mb-8">
               <h3 className="text-lg font-semibold text-gray-700 mb-4">Kalorienverlauf</h3>
               <ResponsiveContainer width="100%" height={300}>
@@ -475,13 +839,13 @@ export default function MacroCoachApp() {
                 </LineChart>
               </ResponsiveContainer>
             </div>
-            
-            <div className="mt-6 grid grid-cols-2 gap-4">
+
+            <div className="grid grid-cols-2 gap-4">
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                 <div className="text-sm text-green-700 mb-1">Startgewicht</div>
                 <div className="text-2xl font-bold text-green-900">{userData.currentWeight} kg</div>
               </div>
-              
+
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div className="text-sm text-blue-700 mb-1">Aktuelles Gewicht</div>
                 <div className="text-2xl font-bold text-blue-900">
