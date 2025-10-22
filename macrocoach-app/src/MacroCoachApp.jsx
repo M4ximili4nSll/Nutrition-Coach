@@ -58,7 +58,7 @@ export default function MacroCoachApp() {
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return unsubscribe; // Direkt zurückgeben, nicht als Funktion aufrufen
   }, []);
 
   // Lade Benutzerdaten aus Firestore
@@ -432,8 +432,8 @@ export default function MacroCoachApp() {
             <button
               onClick={() => setAuthMode('login')}
               className={`flex-1 py-2 rounded-lg font-semibold transition-colors ${authMode === 'login'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-200 text-gray-700'
                 }`}
             >
               Login
@@ -441,8 +441,8 @@ export default function MacroCoachApp() {
             <button
               onClick={() => setAuthMode('register')}
               className={`flex-1 py-2 rounded-lg font-semibold transition-colors ${authMode === 'register'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-200 text-gray-700'
                 }`}
             >
               Registrieren

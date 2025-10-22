@@ -68,3 +68,20 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/d
 ### `npm run build` fails to minify
 
 This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+
+
+# Nutrition Coach App
+
+## Setup
+
+1. Clone repository
+2. `npm install`
+3. Copy `.env.example` to `.env`
+4. Add your Firebase credentials to `.env`
+5. `npm start`
+
+## Firebase Setup
+
+Create a Firebase project and enable:
+- Authentication (Email/Password)
+- Firestore Database
