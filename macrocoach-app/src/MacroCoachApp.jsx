@@ -8,6 +8,9 @@ import {
   signOut,
   onAuthStateChanged
 } from 'firebase/auth';
+import PasswordReset from './PasswordReset';
+import DeleteAccount from './DeleteAccount';
+import Privacy from './Privacy';
 import {
   doc,
   setDoc,
@@ -27,6 +30,9 @@ export default function MacroCoachApp() {
   const [authMode, setAuthMode] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
 
   const [step, setStep] = useState('setup');
   const [userData, setUserData] = useState({
@@ -428,62 +434,88 @@ export default function MacroCoachApp() {
             Nutrition Coach
           </h1>
 
-          <div className="flex gap-4 mb-6">
-            <button
-              onClick={() => setAuthMode('login')}
-              className={`flex-1 py-2 rounded-lg font-semibold transition-colors ${authMode === 'login'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-700'
-                }`}
-            >
-              Login
-            </button>
-            <button
-              onClick={() => setAuthMode('register')}
-              className={`flex-1 py-2 rounded-lg font-semibold transition-colors ${authMode === 'register'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-700'
-                }`}
-            >
-              Registrieren
-            </button>
-          </div>
+          {showPasswordReset ? (
+            <PasswordReset onBack={() => setShowPasswordReset(false)} />
+          ) : (
+            <>
+              <div className="flex gap-4 mb-6">
+                <button
+                  onClick={() => setAuthMode('login')}
+                  className={`flex-1 py-2 rounded-lg font-semibold transition-colors ${authMode === 'login'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 text-gray-700'
+                    }`}
+                >
+                  Login
+                </button>
+                <button
+                  onClick={() => setAuthMode('register')}
+                  className={`flex-1 py-2 rounded-lg font-semibold transition-colors ${authMode === 'register'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 text-gray-700'
+                    }`}
+                >
+                  Registrieren
+                </button>
+              </div>
 
-          <form onSubmit={handleAuth} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                E-Mail
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
+              <form onSubmit={handleAuth} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    E-Mail
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Passwort
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Passwort
+                  </label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
 
-            <button
-              type="submit"
-              className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-            >
-              {authMode === 'login' ? 'Anmelden' : 'Konto erstellen'}
-            </button>
-          </form>
+                <button
+                  type="submit"
+                  className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                >
+                  {authMode === 'login' ? 'Anmelden' : 'Konto erstellen'}
+                </button>
+
+                {authMode === 'login' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordReset(true)}
+                    className="w-full text-sm text-blue-600 hover:text-blue-700 mt-2"
+                  >
+                    Passwort vergessen?
+                  </button>
+                )}
+              </form>
+            </>
+          )}
         </div>
+        <div className="mt-4 text-center">
+          <button
+            onClick={() => setShowPrivacy(true)}
+            className="text-sm text-gray-600 hover:text-gray-800"
+          >
+            Datenschutzerklärung
+          </button>
+        </div>
+
+        {showPrivacy && <Privacy onClose={() => setShowPrivacy(false)} />}
       </div>
     );
   }
@@ -653,6 +685,34 @@ export default function MacroCoachApp() {
               </button>
             </div>
           </div>
+
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-3xl font-bold text-gray-800">Ernährungs-Coach Setup</h1>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowDeleteAccount(true)}
+                className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                <Trash2 size={20} />
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                <LogOut size={20} />
+                Abmelden
+              </button>
+            </div>
+          </div>
+
+          {showDeleteAccount && (
+            <div className="mb-6">
+              <DeleteAccount
+                onCancel={() => setShowDeleteAccount(false)}
+                onSuccess={handleLogout}
+              />
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
             <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white">
