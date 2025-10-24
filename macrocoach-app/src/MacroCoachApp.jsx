@@ -505,17 +505,17 @@ export default function MacroCoachApp() {
               </form>
             </>
           )}
-        </div>
-        <div className="mt-4 text-center">
-          <button
-            onClick={() => setShowPrivacy(true)}
-            className="text-sm text-gray-600 hover:text-gray-800"
-          >
-            Datenschutzerklärung
-          </button>
-        </div>
+          <div className="mt-4 text-center">
+            <button
+              onClick={() => setShowPrivacy(true)}
+              className="text-sm text-gray-600 hover:text-gray-800"
+            >
+              Datenschutzerklärung
+            </button>
+          </div>
 
-        {showPrivacy && <Privacy onClose={() => setShowPrivacy(false)} />}
+          {showPrivacy && <Privacy onClose={() => setShowPrivacy(false)} />}
+        </div>
       </div>
     );
   }
@@ -677,12 +677,7 @@ export default function MacroCoachApp() {
                 <Target size={24} />
                 <span className="font-semibold">{userData.targetWeight} kg</span>
               </div>
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-              >
-                <LogOut size={20} />
-              </button>
+
             </div>
           </div>
 

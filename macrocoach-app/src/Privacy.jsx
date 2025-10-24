@@ -10,9 +10,9 @@ export default function Privacy({ onClose }) {
                     <section>
                         <h2 className="text-xl font-semibold mb-2">1. Verantwortlicher</h2>
                         <p>
-                            [Maximilian Sell]<br />
-                            [Zum Stollengang 4, 34260 Kaufungen]<br />
-                            E-Mail: [maximiliansell93@gmail.com]
+                            Maximilian Sell<br />
+                            Zum Stollengang 4, 34260 Kaufungen<br />
+                            E-Mail: maximiliansell93@gmail.com
                         </p>
                     </section>
 
