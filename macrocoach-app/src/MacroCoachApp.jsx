@@ -695,7 +695,6 @@ export default function MacroCoachApp() {
                 className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
               >
                 <LogOut size={20} />
-                Abmelden
               </button>
             </div>
           </div>
