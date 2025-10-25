@@ -569,6 +569,7 @@ export default function MacroCoachApp() {
             >
               Datenschutzerklärung
             </button>
+            <span className="text-gray-400">|</span>
             <button
               onClick={() => setShowImprint(true)}
               className="text-sm text-gray-600 hover:text-gray-800"

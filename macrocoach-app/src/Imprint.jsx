@@ -39,8 +39,8 @@ export default function Imprint({ onClose }) {
                         <p className="text-sm">
                             Diese App dient nur zu Informationszwecken und ersetzt keine
                             professionelle medizinische oder ernährungswissenschaftliche Beratung.
-                            Konsultieren Sie bei gesundheitlichen Fragen immer einen Arzt oder
-                            qualifizierten Ernährungsberater.
+                            Konsultieren Sie bei gesundheitlichen Fragen immer eine Ärztin, einen Arzt oder
+                            eine qualifizierten Ernährungsberatung.
                         </p>
                     </section>
                 </div>
