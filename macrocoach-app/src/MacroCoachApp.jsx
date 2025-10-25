@@ -8,6 +8,7 @@ import {
   signOut,
   onAuthStateChanged
 } from 'firebase/auth';
+import Imprint from './Imprint';
 import PasswordReset from './PasswordReset';
 import DeleteAccount from './DeleteAccount';
 import Privacy from './Privacy';
@@ -26,6 +27,7 @@ import {
 
 export default function MacroCoachApp() {
   const [user, setUser] = useState(null);
+  const [showImprint, setShowImprint] = useState(false);
   const [loading, setLoading] = useState(true);
   const [authMode, setAuthMode] = useState('login');
   const [email, setEmail] = useState('');
@@ -567,9 +569,16 @@ export default function MacroCoachApp() {
             >
               Datenschutzerklärung
             </button>
+            <button
+              onClick={() => setShowImprint(true)}
+              className="text-sm text-gray-600 hover:text-gray-800"
+            >
+              Impressum
+            </button>
           </div>
 
           {showPrivacy && <Privacy onClose={() => setShowPrivacy(false)} />}
+          {showImprint && <Imprint onClose={() => setShowImprint(false)} />}
         </div>
       </div>
     );

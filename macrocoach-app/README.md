@@ -1,87 +1,83 @@
-# Getting Started with Create React App
+# Nutrition Coach App 🥗💪
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+![Tests](https://github.com/DEIN_USERNAME/DEIN_REPO/actions/workflows/test.yml/badge.svg)
+![Deploy](https://github.com/DEIN_USERNAME/DEIN_REPO/actions/workflows/deploy.yml/badge.svg)
 
-## Available Scripts
+Eine intelligente Ernährungs-Coaching-App, die adaptive TDEE-Berechnungen und personalisierte Makronährstoff-Empfehlungen bietet, basierend auf der Stronger By Science Methodik.
 
-In the project directory, you can run:
+## 🌟 Features
 
-### `npm start`
+### Core Funktionalität
+- **Adaptive TDEE-Berechnung**: Automatische Anpassung des Gesamtenergieverbrauchs basierend auf tatsächlichem Fortschritt
+- **Personalisierte Makros**: Protein, Fette und Kohlenhydrate werden individuell nach Körpergröße, Gewicht und Ziel berechnet
+- **Flexible Gewichtseingabe**: Mehrfache Messungen pro Woche für präzisere Durchschnittswerte
+- **Kalorie-Tracking**: Optional tracking der tatsächlich gegessenen Kalorien für genauere TDEE-Berechnungen
+- **Wissenschaftlich fundiert**: Basiert auf der [Stronger By Science Diet Setup Guide](https://www.strongerbyscience.com/diet/)
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+### Benutzer-Management
+- **Sichere Authentifizierung**: Email/Passwort Login via Firebase Auth
+- **Password Reset**: Selbstständiges Zurücksetzen vergessener Passwörter
+- **Account Löschen**: DSGVO-konforme Datenlöschung
+- **Zyklus-Management**: Beende einen Zyklus und starte mit neuen Zielen, TDEE-Daten bleiben erhalten
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### Visualisierung
+- **Gewichtsverlauf**: Interaktive Charts mit Wochendurchschnitten
+- **Kalorienverlauf**: Visualisierung der angepassten Zielkalorien und TDEE
+- **Fortschritts-Tracking**: Übersicht über Start- und aktuelles Gewicht
 
-### `npm test`
+### Datenschutz & Sicherheit
+- **DSGVO-konform**: Vollständige Datenschutzerklärung integriert
+- **Datenlöschung**: Alle Daten können jederzeit gelöscht werden
+- **Sichere Speicherung**: Daten werden verschlüsselt in Firebase Firestore gespeichert
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## 🚀 Live Demo
 
-### `npm run build`
+**URL**: [https://nutrition-coach-f9ce8.web.app](https://nutrition-coach-f9ce8.web.app)
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## 📋 Voraussetzungen
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+- Node.js 18.x oder höher
+- npm oder yarn
+- Firebase Account
+- Git
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## 🛠️ Installation
 
-### `npm run eject`
+### 1. Repository klonen
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+```bash
+git clone https://github.com/DEIN_USERNAME/nutrition-coach-app.git
+cd nutrition-coach-app
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### 2. Dependencies installieren
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+```bash
+npm install
+```
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### 3. Environment Variables einrichten
 
-## Learn More
+Kopiere `.env.example` zu `.env` und füge deine Firebase Credentials ein:
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+```bash
+cp .env.example .env
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+Bearbeite `.env` und trage deine Firebase Config ein:
 
-### Code Splitting
+```env
+REACT_APP_FIREBASE_API_KEY=dein_api_key
+REACT_APP_FIREBASE_AUTH_DOMAIN=dein_projekt.firebaseapp.com
+REACT_APP_FIREBASE_PROJECT_ID=dein_projekt_id
+REACT_APP_FIREBASE_STORAGE_BUCKET=dein_projekt.appspot.com
+REACT_APP_FIREBASE_MESSAGING_SENDER_ID=deine_sender_id
+REACT_APP_FIREBASE_APP_ID=deine_app_id
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+### 4. Firebase Setup
 
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
-
-
-# Nutrition Coach App
-
-## Setup
-
-1. Clone repository
-2. `npm install`
-3. Copy `.env.example` to `.env`
-4. Add your Firebase credentials to `.env`
-5. `npm start`
-
-## Firebase Setup
-
-Create a Firebase project and enable:
-- Authentication (Email/Password)
-- Firestore Database
+#### Firebase Projekt erstellen
+1. Gehe zu [Firebase Console](https://console.firebase.google.com)
+2. Erstelle ein neues Projekt
+3. Aktiv
