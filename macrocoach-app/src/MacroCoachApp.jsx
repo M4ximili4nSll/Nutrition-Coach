@@ -747,20 +747,26 @@ export default function MacroCoachApp() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="bg-white rounded-2xl shadow-xl p-8">
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-3xl font-bold text-gray-800">Woche {currentWeek}</h1>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-blue-600">
-                <Target size={24} />
-                <span className="font-semibold">{userData.targetWeight} kg</span>
-              </div>
-              <button
-                onClick={() => setShowCycleComplete(true)}
-                className="px-3 sm:px-4 py-2 bg-orange-500 text-white rounded-lg font-semibold hover:bg-orange-600 transition-colors text-sm"
-              >
-                Zyklus beenden
-              </button>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">
+              Woche {currentWeek}
+            </h1>
 
+            <div className="flex items-center justify-between sm:justify-end gap-2">
+              <div className="flex items-center gap-2 text-blue-600">
+                <Target size={20} />
+                <span className="font-semibold text-sm sm:text-base">
+                  {userData.targetWeight} kg
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowCycleComplete(true)}
+                  className="px-3 py-2 bg-orange-500 text-white rounded-lg font-semibold hover:bg-orange-600 transition-colors text-xs sm:text-sm whitespace-nowrap"
+                >
+                  Zyklus beenden
+                </button>
+              </div>
 
             </div>
           </div>
@@ -851,29 +857,33 @@ export default function MacroCoachApp() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-8">
-            <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white">
-              <div className="text-sm opacity-90 mb-1">Kalorien</div>
-              <div className="text-3xl font-bold">{recommendations?.calories}</div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+            <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 sm:p-6 text-white">
+              <div className="text-xs sm:text-sm opacity-90 mb-1">Kalorien</div>
+              <div className="text-2xl sm:text-3xl font-bold">{recommendations?.calories}</div>
               <div className="text-xs opacity-75 mt-1">kcal/Tag</div>
             </div>
 
-            <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl p-6 text-white">
-              <div className="text-sm opacity-90 mb-1">Protein</div>
-              <div className="text-3xl font-bold">{recommendations?.protein}</div>
-              <div className="text-xs opacity-75 mt-1">Gramm/Tag</div>
+            <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl p-4 sm:p-6 text-white">
+              <div className="text-xs sm:text-sm opacity-90 mb-1">Protein</div>
+              <div className="text-2xl sm:text-3xl font-bold">{recommendations?.protein}</div>
+              <div className="text-xs opacity-75 mt-1">g/Tag</div>
             </div>
 
-            <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white">
-              <div className="text-sm opacity-90 mb-1">Kohlenhydrate</div>
-              <div className="text-3xl font-bold">{recommendations?.carbs}</div>
-              <div className="text-xs opacity-75 mt-1">Gramm/Tag</div>
+            <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-4 sm:p-6 text-white">
+              <div className="text-xs sm:text-sm opacity-90 mb-1">Kohlenhydrate</div>
+              <div className="text-2xl sm:text-3xl font-bold">{recommendations?.carbs}</div>
+              <div className="text-xs opacity-75 mt-1">g/Tag</div>
             </div>
 
-            <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl p-6 text-white">
-              <div className="text-sm opacity-90 mb-1">Fett</div>
-              <div className="text-3xl font-bold">{recommendations?.fat}</div>
-              <div className="text-xs opacity-75 mt-1">g/Tag (Min: {recommendations?.minFat})</div>
+            <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl p-4 sm:p-6 text-white">
+              <div className="text-xs sm:text-sm opacity-90 mb-1">Fett</div>
+              <div className="text-2xl sm:text-3xl font-bold">{recommendations?.fat}</div>
+              <div className="text-xs opacity-75 mt-1">
+                g/Tag {recommendations?.minFat && (
+                  <span className="hidden sm:inline">(Min: {recommendations.minFat})</span>
+                )}
+              </div>
             </div>
           </div>
 

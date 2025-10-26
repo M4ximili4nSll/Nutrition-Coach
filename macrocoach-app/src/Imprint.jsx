@@ -40,7 +40,7 @@ export default function Imprint({ onClose }) {
                             Diese App dient nur zu Informationszwecken und ersetzt keine
                             professionelle medizinische oder ernährungswissenschaftliche Beratung.
                             Konsultieren Sie bei gesundheitlichen Fragen immer eine Ärztin, einen Arzt oder
-                            eine qualifizierten Ernährungsberatung.
+                            qualifizierte Ernährungsberatung.
                         </p>
                     </section>
                 </div>
