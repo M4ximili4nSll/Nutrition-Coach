@@ -772,7 +772,7 @@ export default function MacroCoachApp() {
           </div>
 
           <div className="flex justify-between items-center mb-6">
-            <h1 className="text-3xl font-bold text-gray-800">Ernährungs-Coach Setup</h1>
+            <h1 className="text-3xl font-bold text-gray-800">Ernährungs-Coach</h1>
             <div className="flex gap-2">
               <button
                 onClick={() => setShowDeleteAccount(true)}
