@@ -7,7 +7,8 @@ import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged
-} from 'firebase/auth';
+}
+  from 'firebase/auth';
 import Imprint from './Imprint';
 import PasswordReset from './PasswordReset';
 import DeleteAccount from './DeleteAccount';
@@ -24,6 +25,16 @@ import {
   getDocs,
   deleteDoc
 } from 'firebase/firestore';
+import {
+  calculateInitialTDEE,
+  calculateMacros,
+  calculateCalorieTarget,
+  calculateWeeklyAverage,
+  adjustTDEE,
+  calculateConfidence,
+  validateGoalWeight,
+  getEnergyDensity  // NEU (falls du es direkt verwenden willst)
+} from './calculations';
 
 export default function MacroCoachApp() {
   const [user, setUser] = useState(null);
@@ -221,6 +232,8 @@ export default function MacroCoachApp() {
     return sum / weekEntries.length;
   };
 
+
+
   const adjustTDEE = (currentWeight) => {
     if (weeklyAverages.length < 3) return tdee;
 
@@ -372,17 +385,26 @@ export default function MacroCoachApp() {
     setWeeklyAverages(updatedAverages);
 
     if (updatedAverages.length >= 3) {
-      const adjustedTDEE = adjustTDEE(weekAvgWeight);
+      // ÄNDERE: Variable umbenennen + currentWeek entfernen
+      const newTDEE = adjustTDEE(
+        weightEntries,
+        calorieHistory,
+        tdee,
+        recommendations,
+        userData.goal,              // KEIN currentWeek hier!
+        userData.weeklyGoalPercent
+      );
 
-      if (adjustedTDEE !== tdee) {
-        setTdee(adjustedTDEE);
+      if (newTDEE !== tdee) {
+        setTdee(newTDEE);
 
         const newCalorieTarget = calculateCalorieTarget(
-          adjustedTDEE,
+          newTDEE,
           userData.goal,
           userData.weeklyGoalPercent,
           weekAvgWeight
         );
+
         const newMacros = calculateMacros(
           newCalorieTarget,
           weekAvgWeight,
@@ -393,13 +415,13 @@ export default function MacroCoachApp() {
         setRecommendations({
           calories: newCalorieTarget,
           ...newMacros,
-          tdee: adjustedTDEE
+          tdee: newTDEE
         });
 
         setCalorieHistory([...calorieHistory, {
           week: currentWeek,
           calories: newCalorieTarget,
-          tdee: adjustedTDEE,
+          tdee: newTDEE,
           avgCalories: weekAvgCalories
         }]);
       } else {
@@ -887,16 +909,19 @@ export default function MacroCoachApp() {
             </div>
           </div>
 
-          <div className="bg-gray-50 rounded-xl p-4 md:p-6 mb-6">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
-              <Activity className="text-blue-600 flex-shrink-0" size={20} />
-              <h3 className="text-base sm:text-lg font-semibold text-gray-800">
-                Geschätzter TDEE: {recommendations?.tdee} kcal
-              </h3>
+          <div className="bg-gray-50 rounded-xl p-4 mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <h3>Geschätzter TDEE: {recommendations?.tdee} kcal</h3>
+              <div className="text-sm">
+                Konfidenz: {calculateConfidence(weeklyAverages, weightEntries)}%
+              </div>
             </div>
-            <p className="text-xs sm:text-sm text-gray-600">
-              Ab Woche 3 wird dieser Wert automatisch angepasst basierend auf deinem Fortschritt und deinen tatsächlich gegessenen Kalorien.
-            </p>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div
+                className="bg-blue-600 h-2 rounded-full transition-all"
+                style={{ width: `${calculateConfidence(weeklyAverages, weightEntries)}%` }}
+              />
+            </div>
           </div>
 
           <div className="border-t pt-6 space-y-6">
@@ -1069,4 +1094,4 @@ export default function MacroCoachApp() {
       </div>
     </div>
   );
-}
+};
